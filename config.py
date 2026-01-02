@@ -22,6 +22,7 @@ def require(name: str) -> str:
         raise RuntimeError(f"{name} is required")
     return value
 
+
 API_ID = int(require("API_ID"))
 API_HASH = require("API_HASH")
 BOT_TOKEN = require("BOT_TOKEN")
@@ -41,18 +42,6 @@ ALLOWED_USER_IDS = (
 
 ADMIN_ENABLED = str2bool(os.getenv("ADMIN_ENABLED", "false"))
 
-
-# =========================
-# Upload limits
-# =========================
-# Telegram limits:
-# - Normal users: ~2 GB
-# - Premium users: ~4 GB
-#
-# Examples:
-# MAX_FILE_MB=2048
-# MAX_FILE_MB=4096
-#
-# If unset → unlimited (Telegram controls it)
-
 MAX_FILE_MB = env_int("MAX_FILE_MB", None)
+
+MAX_CONCURRENT_TRANSFERS = env_int("MAX_CONCURRENT_TRANSFERS", 3)
