@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Admin Login</title>
+  <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+
+<body class="centered auth-page">
+  <div class="card auth-card">
+    <h2>🔐 Admin Login</h2>
+
+    {% if error %}
+      <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post">
+      <input type="email" name="email" placeholder="Email" required>
+      <input type="password" name="password" placeholder="Password" required>
+      <button type="submit" class="action-btn">Login</button>
+    </form>
+  </div>
+</body>
+</html>

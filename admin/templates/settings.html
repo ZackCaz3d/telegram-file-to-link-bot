@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Settings</title>
+  <link rel="stylesheet" href="/static/css/admin.css?v=1">
+  <script src="/static/js/admin.js?v=1" defer></script>
+</head>
+
+<body>
+
+<header class="admin-header">
+  <h1>📊 System Info</h1>
+
+  <nav class="header-actions">
+    <a href="/admin" class="nav-link">Dashboard</a>
+    <a href="/admin/settings" class="nav-link">Settings</a>
+    <button id="theme-toggle">🌙</button>
+    <form method="post" action="/admin/logout">
+      <button class="logout">Logout</button>
+    </form>
+  </nav>
+</header>
+
+<main>
+
+<a href="/admin" class="nav-link" style="margin-bottom:16px;display:inline-block">
+  ← Back to Dashboard
+</a>
+
+<div class="card">
+  <h3>📦 Storage Usage</h3>
+  <p><strong>Used:</strong> {{ (used_bytes / (1024**2)) | round(2) }} MB</p>
+  <p><strong>Total files:</strong> {{ total_files }}</p>
+  <p><strong>Largest file:</strong> {{ (largest_file / (1024**2)) | round(2) }} MB</p>
+</div>
+
+</main>
+
+</body>
+</html>

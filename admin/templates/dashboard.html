@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="/static/css/admin.css?v=1">
+  <script src="/static/js/admin.js?v=1" defer></script>
+</head>
+
+<body>
+
+<header class="admin-header">
+  <h1>📊 Admin Dashboard</h1>
+
+  <nav class="header-actions">
+    <a href="/admin" class="nav-link">Dashboard</a>
+    <a href="/admin/settings" class="nav-link">Settings</a>
+
+    <button id="theme-toggle" type="button">🌙</button>
+
+    <form method="post" action="/admin/logout">
+      <button class="logout">Logout</button>
+    </form>
+  </nav>
+</header>
+
+<main>
+
+<section class="dashboard">
+  <div class="card"><h3>Total Files</h3><p>{{ stats.total_files }}</p></div>
+  <div class="card"><h3>Total Downloads</h3><p>{{ stats.total_downloads }}</p></div>
+  <div class="card"><h3>Active Files</h3><p>{{ stats.active_files }}</p></div>
+</section>
+
+<form method="get" class="search-bar">
+  <input name="q" value="{{ query }}" placeholder="Search files...">
+</form>
+
+<div class="table-card">
+  <div class="table-header">All Files</div>
+  <table>
+    <tr>
+      <th>Name</th>
+      <th class="right">Downloads</th>
+      <th class="right">Status</th>
+      <th class="right">Actions</th>
+    </tr>
+
+    {% for f in files %}
+    <tr>
+      <td>{{ f.name }}</td>
+      <td class="right">{{ f.downloads }}</td>
+      <td class="right">
+        {% if f.expires_at %}
+          <span class="badge orange">Expiring</span>
+        {% else %}
+          <span class="badge green">Active</span>
+        {% endif %}
+      </td>
+      <td class="right">
+        <form method="post" action="/admin/file/{{ f.file_id }}/disable" style="display:inline">
+          <button class="action-btn action-disable">Disable</button>
+        </form>
+        <form method="post" action="/admin/file/{{ f.file_id }}/delete" style="display:inline">
+          <button class="action-btn action-delete"
+            onclick="return confirm('Delete this file permanently?')">
+            Delete
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="dashboard" style="margin-top:30px">
+
+  <div class="card">
+    <h3>🔥 Top Downloads</h3>
+    <ul>
+      {% for f in top_files %}
+        <li>{{ f.name }} — {{ f.downloads }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>🕒 Recent Uploads</h3>
+    <ul>
+      {% for f in recent_files %}
+        <li>{{ f.name }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>⏳ Expiring Soon</h3>
+    <ul>
+      {% for f in expiring_files %}
+        <li>{{ f.name }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+</div>
+
+</main>
+
+</body>
+</html>

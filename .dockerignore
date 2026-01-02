@@ -1,0 +1,17 @@
+.env
+.env.*
+
+__pycache__/
+*.pyc
+
+uploads/
+
+.venv/
+venv/
+
+.git
+.gitignore
+.DS_Store
+Thumbs.db
+
+docs/

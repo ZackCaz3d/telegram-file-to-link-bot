@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+
+<body class="centered">
+  <div class="card" style="max-width:420px;text-align:center">
+    <h2>{{ icon }} {{ title }}</h2>
+    <p style="margin-top:12px">{{ message }}</p>
+
+    {% if hint %}
+      <p class="muted" style="margin-top:8px">{{ hint }}</p>
+    {% endif %}
+
+    {% if back_url %}
+      <a href="{{ back_url }}" class="nav-link" style="margin-top:16px;display:inline-block">
+        ← Go back
+      </a>
+    {% endif %}
+  </div>
+</body>
+</html>
