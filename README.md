@@ -196,6 +196,8 @@ ALLOWED_USER_IDS=123456789
 ### Admin Dashboard (Optional)
 ```env
 ADMIN_ENABLED=true
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=change-me-now
 SESSION_SECRET=change-me
 ```
 
