@@ -60,6 +60,14 @@ Your bot and download API will be live within minutes.
 
 ---
 
+### 🔄 Upload Concurrency Control
+- Limits how many file uploads are processed at the same time
+- Prevents server overload and Telegram flood limits
+- Extra uploads are automatically queued
+- Fully configurable via environment variables
+
+---
+
 ### ⚙️ Mode System (TTL Control)
 
 TTL is controlled **per user** via Telegram commands.
@@ -169,6 +177,11 @@ Create a `.env` file in the project root.
 API_ID=your_api_id
 API_HASH=your_api_hash
 BOT_TOKEN=your_bot_token
+```
+
+### Upload Concurrency (Processing Control)
+```env
+MAX_CONCURRENT_TRANSFERS=3
 ```
 
 ### Database & Cache

@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 import os
 import re
@@ -8,17 +9,16 @@ from bot.bot import tg_client
 from cache.redis import redis_client
 from bot.utils.access import is_allowed
 from bot.utils.mode import get_mode, format_ttl
-from config import BASE_URL, MAX_FILE_MB
+from config import BASE_URL, MAX_FILE_MB, MAX_CONCURRENT_TRANSFERS
 from db.database import Database
-
 
 UPLOAD_DIR = os.path.abspath("uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+upload_semaphore = asyncio.Semaphore(MAX_CONCURRENT_TRANSFERS)
 
 def safe_filename(name: str) -> str:
     return re.sub(r'[<>:"/\\|?*\x00-\x1F]', "_", name).strip()
-
 
 @tg_client.on_message(
     filters.private & (
@@ -39,6 +39,12 @@ async def upload_handler(_, message):
         await message.reply("🚫 Unauthorized")
         return
 
+    status = await message.reply("📥 Queued for processing…")
+
+    async with upload_semaphore:
+        await process_upload(message, status)
+
+async def process_upload(message, status):
     media = (
         message.document
         or message.video
@@ -55,15 +61,14 @@ async def upload_handler(_, message):
         max_bytes = MAX_FILE_MB * 1024 * 1024
         if file_size > max_bytes:
             size_mb = file_size / (1024 * 1024)
-
-            await message.reply(
+            await status.edit(
                 "❌ **File too large**\n\n"
                 f"Your file: **{size_mb:.2f} MB**\n"
                 f"Max allowed: **{MAX_FILE_MB} MB**"
             )
             return
 
-    status = await message.reply("⬇️ Downloading...")
+    await status.edit("⬇️ Downloading…")
     temp_path = await message.download()
 
     if not temp_path:
