@@ -37,3 +37,9 @@ Avoid:
 
 You are responsible for ensuring your contribution does not introduce
 illegal behavior or violate third-party terms of service.
+
+## License of Contributions
+
+By submitting a contribution, you agree that your contribution
+will be licensed under the same license as the project
+(Apache License 2.0).
