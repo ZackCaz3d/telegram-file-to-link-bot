@@ -5,6 +5,8 @@ A self-hosted **Telegram bot** that generates **secure, rate-limited download li
 The project can run **locally**, on a **VPS**, or on any cloud platform.  
 For the easiest setup, **Railway is recommended**.
 
+![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
+
 ---
 
 ## 🚀 Deployment (Railway – Recommended)
@@ -262,4 +264,6 @@ Yes. File size limits depend on **Telegram**, not this bot.
 Yes. Railway supports custom domains.
 
 ## 📜 License
-MIT License
+
+Apache License 2.0
+
