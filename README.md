@@ -1,11 +1,15 @@
+![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
+![Platform](https://img.shields.io/badge/platform-Telegram-blue)
+![Python](https://img.shields.io/badge/python-3.13-blue)
+![Framework](https://img.shields.io/badge/FastAPI-async-green)
+![Deploy](https://img.shields.io/badge/deploy-Railway-purple)
+
 # 📎 Telegram File Link Bot
 
 A self-hosted **Telegram bot** that generates **secure, rate-limited download links** for uploaded files, with **time-based expiration (TTL)**, an **optional admin dashboard**, and **automatic cleanup**.
 
 The project can run **locally**, on a **VPS**, or on any cloud platform.  
 For the easiest setup, **Railway is recommended**.
-
-![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 
 ---
 
