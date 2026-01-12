@@ -11,17 +11,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 
 import os
+import boto3
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from cache.redis import redis_client
 from db.database import Database
 from config import (
     GLOBAL_RATE_LIMIT_REQUESTS,
     GLOBAL_RATE_LIMIT_WINDOW,
+    STORAGE_BACKEND,
+    AWS_ENDPOINT_URL,
+    AWS_S3_BUCKET_NAME,
+    AWS_DEFAULT_REGION,
 )
 
 router = APIRouter()
 
+s3 = None
+if STORAGE_BACKEND == "s3":
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=AWS_ENDPOINT_URL,
+        region_name=AWS_DEFAULT_REGION,
+    )
 
 def get_real_ip(request: Request) -> str:
     return (
@@ -75,9 +87,7 @@ async def get_file(file_id: str, request: Request):
         redis_client.hset(key, mapping=meta)
 
     download_key = f"downloaded:{ip}:{file_id}"
-    first_download = not redis_client.exists(download_key)
-
-    if first_download:
+    if not redis_client.exists(download_key):
         redis_client.setex(download_key, 3600, 1)
 
         await Database.pool.execute(
@@ -87,11 +97,23 @@ async def get_file(file_id: str, request: Request):
 
         redis_client.hincrby(key, "downloads", 1)
 
-    if not os.path.exists(meta["path"]):
-        raise HTTPException(404, "File missing")
+    if STORAGE_BACKEND == "local":
+        if not os.path.exists(meta["path"]):
+            raise HTTPException(404, "File missing")
 
-    return FileResponse(
-        path=meta["path"],
-        filename=meta["name"],
-        media_type="application/octet-stream",
+        return FileResponse(
+            path=meta["path"],
+            filename=meta["name"],
+            media_type="application/octet-stream",
+        )
+
+    url = s3.generate_presigned_url(
+        "get_object",
+        Params={
+            "Bucket": AWS_S3_BUCKET_NAME,
+            "Key": meta["path"],
+        },
+        ExpiresIn=3600, 
     )
+
+    return RedirectResponse(url, status_code=302)

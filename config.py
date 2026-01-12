@@ -34,12 +34,18 @@ def require(name: str) -> str:
         raise RuntimeError(f"{name} is required")
     return value
 
+def normalize_base_url(value: str | None) -> str:
+    if not value:
+        return "http://localhost:8000"
+    if value.startswith("http://") or value.startswith("https://"):
+        return value
+    return f"https://{value}"
 
 API_ID = int(require("API_ID"))
 API_HASH = require("API_HASH")
 BOT_TOKEN = require("BOT_TOKEN")
 
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+BASE_URL = normalize_base_url(os.getenv("BASE_URL"))
 DATABASE_URL = require("DATABASE_URL")
 REDIS_URL = require("REDIS_URL")
 
@@ -57,3 +63,9 @@ ADMIN_ENABLED = str2bool(os.getenv("ADMIN_ENABLED", "false"))
 MAX_FILE_MB = env_int("MAX_FILE_MB", None)
 
 MAX_CONCURRENT_TRANSFERS = env_int("MAX_CONCURRENT_TRANSFERS", 3)
+
+STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "local")
+
+AWS_ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL")
+AWS_S3_BUCKET_NAME = os.getenv("AWS_S3_BUCKET_NAME")
+AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "auto")
