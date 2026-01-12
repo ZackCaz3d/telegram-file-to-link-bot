@@ -3,6 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.13-blue)
 ![Framework](https://img.shields.io/badge/FastAPI-async-green)
 ![Deploy](https://img.shields.io/badge/deploy-Railway-purple)
+![Docker](https://img.shields.io/badge/docker-supported-blue)
 
 # 📎 Telegram File Link Bot
 
@@ -230,6 +231,41 @@ uvicorn app.main:app --reload --log-level warning
 ```
 
 Make sure a `.env` file exists before starting.
+
+---
+
+## 🐳 Running with Docker (Recommended for VPS & Containers)
+
+This project includes a ready-to-use **Dockerfile** compatible with Railway, VPS, and local Docker setups.
+
+### Build image
+```bash
+docker build -t telegram-file-link-bot .
+```
+
+### Run container
+```bash
+docker run -d \
+  --name telegram-file-link-bot \
+  --env-file .env \
+  -p 8000:8000 \
+  telegram-file-link-bot
+```
+
+### View logs
+```bash
+docker logs -f telegram-file-link-bot
+```
+
+### Stop container
+```bash
+docker stop telegram-file-link-bot
+```
+
+### Remove container
+```bash
+docker rm telegram-file-link-bot
+```
 
 ---
 
