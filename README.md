@@ -164,6 +164,22 @@ STORAGE_BACKEND=s3
 
 ---
 
+### S3-Compatible Storage (Advanced / Non-Railway)
+
+If you are using S3-compatible storage **outside of Railway**
+(e.g. AWS S3, Cloudflare R2, MinIO, Backblaze B2),
+you must provide the following environment variables:
+
+```env
+AWS_ENDPOINT_URL=https://storage.example.com
+AWS_S3_BUCKET_NAME=your-bucket-name
+AWS_DEFAULT_REGION=auto
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+```
+
+---
+
 ## 🧱 Tech Stack
 - Python **3.11+** (tested on 3.13)
 - FastAPI
@@ -207,6 +223,20 @@ MAX_CONCURRENT_TRANSFERS=3
 DATABASE_URL=postgresql://user:password@localhost:5432/filelink
 REDIS_URL=redis://localhost:6379
 ```
+
+### Storage Backend
+Choose where uploaded files are stored.
+
+Local filesystem (default):
+```
+STORAGE_BACKEND=local
+```
+
+S3-compatible storage:
+```
+STORAGE_BACKEND=s3
+```
+> If not set, the bot defaults to local filesystem storage.
 
 ### Public URL
 Local development:
