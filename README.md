@@ -32,11 +32,12 @@ This repository is designed to be deployed **directly as a Railway template**.
 2. Railway will create a new project from this template
 3. Add PostgreSQL and Redis plugins
 4. Set the required environment variables
-5. Deploy
+5. Optional: Enable Persistent Storage (Railway Buckets)
+6. Deploy
 
 Your bot and download API will be live within minutes.
 
-> You can still deploy this project locally or on any VPS.  
+> You can still deploy this project locally or on any VPS.
 
 ---
 
@@ -83,7 +84,7 @@ Examples:
 - `/mode ttl 30` → 30 minutes
 - `/mode ttl 2h` → 2 hours
 - `/mode ttl 1d` → 1 day
-- `/mode ttl 0 or /mode reset` → Never expire
+- `/mode ttl 0` or `/mode reset` → Never expire
 
 TTL is stored internally in **seconds**.
 
@@ -125,6 +126,7 @@ https://your-domain.com/admin
 ### 🧹 Automatic Cleanup
 - Background task removes expired files
 - Cleans database records and Redis cache
+- Deletes expired objects from S3-compatible storage automatically
 - Safe against partial failures
 
 ---
@@ -136,6 +138,32 @@ https://your-domain.com/admin
 
 ---
 
+## 🗄️ Storage Backends
+
+This project supports **two storage backends**, selectable via environment variables.
+
+### Local Filesystem (default)
+- Files are stored in the `uploads/` directory
+- Suitable for local development and small deployments
+- Files are removed automatically when TTL expires
+
+### S3-Compatible Object Storage (Recommended for Production)
+- Files are stored in an S3-compatible bucket
+- Supports **Railway Storage Buckets**, AWS S3, Cloudflare R2, and similar services
+- Files are served via **presigned URLs**
+- No service egress for downloads
+- Files persist across deployments
+- Automatic cleanup when TTL expires
+
+On Railway, S3 credentials are injected automatically when you connect a Storage Bucket.
+
+Enable S3 storage by setting:
+```
+STORAGE_BACKEND=s3
+```
+
+---
+
 ## 🧱 Tech Stack
 - Python **3.11+** (tested on 3.13)
 - FastAPI
@@ -144,24 +172,7 @@ https://your-domain.com/admin
 - Redis
 - Jinja2
 - Vanilla HTML / CSS / JS
-
----
-
-## 📁 Project Structure
-
-```
-.
-├── admin/          # Admin routes, auth, and Jinja2 templates
-├── api/            # Public download API endpoints
-├── app/            # FastAPI core app & background cleanup tasks
-├── bot/            # Telegram bot handlers (Pyrogram)
-├── cache/          # Redis helper functions
-├── db/             # Database connection & asyncpg schema
-├── static/         # Admin dashboard CSS & JS
-├── uploads/        # Local storage for files (gitignored)
-├── config.py       # Environment variable parsing
-└── main.py         # Application entry point
-```
+- S3-compatible object storage
 
 ---
 
@@ -180,41 +191,52 @@ Create a `.env` file in the project root.
 > Tip: Rename `.env.example` to `.env` and fill in your values.
 
 ### Telegram Bot
-```env
+```
 API_ID=your_api_id
 API_HASH=your_api_hash
 BOT_TOKEN=your_bot_token
 ```
 
-### Upload Concurrency (Processing Control)
-```env
+### Upload Concurrency
+```
 MAX_CONCURRENT_TRANSFERS=3
 ```
 
 ### Database & Cache
-```env
+```
 DATABASE_URL=postgresql://user:password@localhost:5432/filelink
 REDIS_URL=redis://localhost:6379
 ```
 
 ### Public URL
-```env
-BASE_URL=https://your-public-domain.com
+Local development:
+```
+BASE_URL=http://localhost:8000
+```
+
+Railway:
+```
+BASE_URL=${RAILWAY_PUBLIC_DOMAIN}
+```
+
+Custom domain:
+```
+BASE_URL=https://files.example.com
 ```
 
 ### Rate Limiting
-```env
+```
 GLOBAL_RATE_LIMIT_REQUESTS=60
 GLOBAL_RATE_LIMIT_WINDOW=10
 ```
 
 ### Access Control (Optional)
-```env
+```
 ALLOWED_USER_IDS=123456789
 ```
 
 ### Admin Dashboard (Optional)
-```env
+```
 ADMIN_ENABLED=true
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=change-me-now
@@ -225,85 +247,22 @@ SESSION_SECRET=change-me
 
 ## ▶️ Running Locally
 
-```bash
+```
 pip install -r requirements.txt
 uvicorn app.main:app --reload --log-level warning
 ```
 
-Make sure a `.env` file exists before starting.
-
 ---
 
-## 🐳 Running with Docker (Recommended for VPS & Containers)
+## 🐳 Running with Docker
 
-This project includes a ready-to-use **Dockerfile** compatible with Railway, VPS, and local Docker setups.
-
-### Build image
-```bash
+```
 docker build -t telegram-file-link-bot .
-```
-
-### Run container
-```bash
-docker run -d \
-  --name telegram-file-link-bot \
-  --env-file .env \
-  -p 8000:8000 \
-  telegram-file-link-bot
-```
-
-### View logs
-```bash
-docker logs -f telegram-file-link-bot
-```
-
-### Stop container
-```bash
-docker stop telegram-file-link-bot
-```
-
-### Remove container
-```bash
-docker rm telegram-file-link-bot
+docker run -d --env-file .env -p 8000:8000 telegram-file-link-bot
 ```
 
 ---
-
-## 📝 Logs
-
-You may see `socket.send() raised exception` during downloads.  
-This is normal behavior caused by browser range requests or client disconnects.
-
----
-
-## 🤝 Contributing
-
-Contributions, bug reports, and feature suggestions are welcome.
-
-If you plan to add a larger feature or architectural change, please open an issue first
-to discuss it before submitting a pull request.
-
----
-
-## ❓ FAQ
-
-**Does this limit downloads per file?**  
-No. Files have unlimited downloads until they expire.
-
-**Can I disable expiration?**  
-Yes. You can use either:
-- `/mode ttl 0` — disable expiration explicitly  
-- `/mode reset` — reset to default (no expiration)
-
-**Is there a file size limit?**  
-Yes. File size limits depend on **Telegram**, not this bot.
-- Regular Telegram accounts: up to **2 GB**
-- Telegram Premium accounts: up to **4 GB**
-
-**Can I use my own domain?**  
-Yes. Railway supports custom domains.
 
 ## 📜 License
 
 Apache License 2.0
-

@@ -16,18 +16,35 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 
+import boto3
 from pyrogram import filters
 from bot.bot import tg_client
 from cache.redis import redis_client
 from bot.utils.access import is_allowed
 from bot.utils.mode import get_mode, format_ttl
-from config import BASE_URL, MAX_FILE_MB, MAX_CONCURRENT_TRANSFERS
+from config import (
+    BASE_URL,
+    MAX_FILE_MB,
+    MAX_CONCURRENT_TRANSFERS,
+    STORAGE_BACKEND,
+    AWS_ENDPOINT_URL,
+    AWS_S3_BUCKET_NAME,
+    AWS_DEFAULT_REGION,
+)
 from db.database import Database
 
 UPLOAD_DIR = os.path.abspath("uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 upload_semaphore = asyncio.Semaphore(MAX_CONCURRENT_TRANSFERS)
+
+s3 = None
+if STORAGE_BACKEND == "s3":
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=AWS_ENDPOINT_URL,
+        region_name=AWS_DEFAULT_REGION,
+    )
 
 def safe_filename(name: str) -> str:
     return re.sub(r'[<>:"/\\|?*\x00-\x1F]', "_", name).strip()
@@ -98,8 +115,16 @@ async def process_upload(message, status):
 
     file_id = uuid.uuid4().hex[:12]
     ext = os.path.splitext(original_name)[1]
-    internal_path = os.path.join(UPLOAD_DIR, f"{file_id}{ext}")
-    os.replace(temp_path, internal_path)
+
+    if STORAGE_BACKEND == "local":
+        internal_path = os.path.join(UPLOAD_DIR, f"{file_id}{ext}")
+        os.replace(temp_path, internal_path)
+        stored_path = internal_path
+    else:
+        key = f"{file_id}{ext}"
+        s3.upload_file(temp_path, AWS_S3_BUCKET_NAME, key)
+        os.remove(temp_path)
+        stored_path = key
 
     user_mode = get_mode(message.from_user.id)
 
@@ -123,7 +148,7 @@ async def process_upload(message, status):
         VALUES ($1, $2, $3, 0, $4, $5)
         """,
         file_id,
-        internal_path,
+        stored_path,
         original_name,
         file_size,
         expires_at,
@@ -133,7 +158,7 @@ async def process_upload(message, status):
     redis_client.hset(
         f"file:{file_id}",
         mapping={
-            "path": internal_path,
+            "path": stored_path,
             "name": original_name,
             "downloads": 0,
             "file_size": file_size,

@@ -12,13 +12,26 @@
 
 import os
 import asyncio
-from datetime import datetime, timezone
+import boto3
 from db.database import Database
 from cache.redis import redis_client
+from config import (
+    STORAGE_BACKEND,
+    AWS_ENDPOINT_URL,
+    AWS_S3_BUCKET_NAME,
+    AWS_DEFAULT_REGION,
+)
 
-FILE_MAP = {}
+CLEANUP_INTERVAL = 30 
 
-CLEANUP_INTERVAL = 30
+s3 = None
+if STORAGE_BACKEND == "s3":
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=AWS_ENDPOINT_URL,
+        region_name=AWS_DEFAULT_REGION,
+    )
+
 
 async def cleanup_expired_files():
     while True:
@@ -38,11 +51,21 @@ async def cleanup_expired_files():
                     path = row["path"]
 
                     try:
-                        if os.path.exists(path):
-                            os.remove(path)
-                    except Exception:
-                        pass
+                        if STORAGE_BACKEND == "local":
+                            # Local filesystem cleanup
+                            if path and os.path.exists(path):
+                                os.remove(path)
+                        else:
+                            # S3 bucket cleanup
+                            s3.delete_object(
+                                Bucket=AWS_S3_BUCKET_NAME,
+                                Key=path,
+                            )
+                    except Exception as e:
+                        # Never crash cleanup loop
+                        print(f"⚠️ Failed to delete file {file_id}: {e}")
 
+                    # Clear Redis cache
                     redis_client.delete(f"file:{file_id}")
 
                 if rows:
