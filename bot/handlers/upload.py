@@ -27,6 +27,7 @@ from bot.bot import tg_client
 from cache.redis import redis_client
 from bot.utils.access import is_allowed
 from bot.utils.mode import get_mode, format_ttl
+from bot.utils.transfers import tracker
 from config import (
     BASE_URL,
     MAX_FILE_MB,
@@ -268,6 +269,7 @@ async def process_upload(message: Message, status):
         nonlocal last_edit_time
         now = time.monotonic()
         pct = current / total if total else 0
+        tracker.update(file_id, current, stage="downloading")
         if now - last_edit_time < PROGRESS_EDIT_INTERVAL and current < total:
             return
         last_edit_time = now
@@ -287,12 +289,18 @@ async def process_upload(message: Message, status):
     temp_path = await message.download(progress=download_progress)
 
     if not temp_path:
+        tracker.complete(file_id, stage="failed")
         await status.edit("❌ Download failed")
         return
 
     file_size = file_size or os.path.getsize(temp_path)
     file_id = uuid.uuid4().hex[:12]
     ext = os.path.splitext(original_name)[1]
+
+    transfer = tracker.start(
+        file_id, original_name, file_size,
+        message.from_user.id, "upload",
+    )
 
     # ── Store ─────────────────────────────────────────────────────────
     # ── TTL / expiry (needed before metadata sidecar) ──────────────
@@ -327,6 +335,7 @@ async def process_upload(message: Message, status):
         def s3_progress_callback(bytes_transferred: int):
             nonlocal uploaded_so_far, last_s3_edit
             uploaded_so_far += bytes_transferred
+            tracker.update(file_id, uploaded_so_far, stage="uploading")
             now = time.monotonic()
             pct = uploaded_so_far / upload_total if upload_total else 0
             if now - last_s3_edit < PROGRESS_EDIT_INTERVAL and uploaded_so_far < upload_total:
@@ -434,4 +443,5 @@ async def process_upload(message: Message, status):
     lines.append("")
     lines.append(f"🔗  `{link}`")
 
+    tracker.complete(file_id, stage="complete")
     await status.edit("\n".join(lines))

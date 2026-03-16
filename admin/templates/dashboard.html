@@ -1,123 +1,143 @@
-<!--
-Copyright 2025 Aman
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+{% block content %}
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon blue">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Total Files</span>
+      <span class="stat-value" id="stat-total-files">{{ stats.total_files }}</span>
+    </div>
+  </div>
 
-    http://www.apache.org/licenses/LICENSE-2.0
+  <div class="stat-card">
+    <div class="stat-icon green">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Active Files</span>
+      <span class="stat-value" id="stat-active-files">{{ stats.active_files }}</span>
+    </div>
+  </div>
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
--->
+  <div class="stat-card">
+    <div class="stat-icon purple">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 15 21 21 15 21"/><polyline points="3 9 3 3 9 3"/><line x1="21" y1="21" x2="14" y2="14"/><line x1="3" y1="3" x2="10" y2="10"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Total Downloads</span>
+      <span class="stat-value" id="stat-downloads">{{ "{:,}".format(stats.total_downloads) }}</span>
+    </div>
+  </div>
 
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Admin Dashboard</title>
-  <link rel="stylesheet" href="/static/css/admin.css?v=1">
-  <script src="/static/js/admin.js?v=1" defer></script>
-</head>
+  <div class="stat-card">
+    <div class="stat-icon orange">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Storage Used</span>
+      <span class="stat-value">{{ "%.1f"|format(stats.total_size / (1024**2)) }} MB</span>
+    </div>
+  </div>
+</div>
 
-<body>
-
-<header class="admin-header">
-  <h1>📊 Admin Dashboard</h1>
-
-  <nav class="header-actions">
-    <a href="/admin" class="nav-link">Dashboard</a>
-    <a href="/admin/settings" class="nav-link">Settings</a>
-
-    <button id="theme-toggle" type="button">🌙</button>
-
-    <form method="post" action="/admin/logout">
-      <button class="logout">Logout</button>
-    </form>
-  </nav>
-</header>
-
-<main>
-
-<section class="dashboard">
-  <div class="card"><h3>Total Files</h3><p>{{ stats.total_files }}</p></div>
-  <div class="card"><h3>Total Downloads</h3><p>{{ stats.total_downloads }}</p></div>
-  <div class="card"><h3>Active Files</h3><p>{{ stats.active_files }}</p></div>
-</section>
-
-<form method="get" class="search-bar">
-  <input name="q" value="{{ query }}" placeholder="Search files...">
-</form>
-
-<div class="table-card">
-  <div class="table-header">All Files</div>
-  <table>
-    <tr>
-      <th>Name</th>
-      <th class="right">Downloads</th>
-      <th class="right">Status</th>
-      <th class="right">Actions</th>
-    </tr>
-
-    {% for f in files %}
-    <tr>
-      <td>{{ f.name }}</td>
-      <td class="right">{{ f.downloads }}</td>
-      <td class="right">
-        {% if f.expires_at %}
-          <span class="badge orange">Expiring</span>
-        {% else %}
-          <span class="badge green">Active</span>
-        {% endif %}
-      </td>
-      <td class="right">
-        <form method="post" action="/admin/file/{{ f.file_id }}/disable" style="display:inline">
-          <button class="action-btn action-disable">Disable</button>
-        </form>
-        <form method="post" action="/admin/file/{{ f.file_id }}/delete" style="display:inline">
-          <button class="action-btn action-delete"
-            onclick="return confirm('Delete this file permanently?')">
-            Delete
-          </button>
-        </form>
-      </td>
-    </tr>
+{% if active_transfers %}
+<div class="panel">
+  <div class="panel-header">
+    <h2>Active Transfers</h2>
+    <span class="badge pulse">{{ active_transfers|length }} active</span>
+  </div>
+  <div class="panel-body">
+    {% for t in active_transfers %}
+    <div class="transfer-item">
+      <div class="transfer-info">
+        <span class="transfer-name">{{ t.filename }}</span>
+        <span class="transfer-meta">User {{ t.user_id }} &middot; {{ t.stage }}</span>
+      </div>
+      <div class="transfer-progress">
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: {{ t.progress }}%"></div>
+        </div>
+        <span class="progress-text">{{ t.progress }}%</span>
+      </div>
+    </div>
     {% endfor %}
-  </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Top Downloads</h2>
+    </div>
+    <div class="panel-body">
+      {% if top_files %}
+      <table class="data-table">
+        <thead><tr><th>File</th><th class="text-right">Downloads</th><th class="text-right">Size</th></tr></thead>
+        <tbody>
+          {% for f in top_files %}
+          <tr>
+            <td class="text-truncate" title="{{ f.name }}">{{ f.name }}</td>
+            <td class="text-right mono">{{ "{:,}".format(f.downloads) }}</td>
+            <td class="text-right mono text-muted">{{ "%.1f"|format((f.file_size or 0) / (1024**2)) }} MB</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">No files yet</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Recent Uploads</h2>
+    </div>
+    <div class="panel-body">
+      {% if recent_files %}
+      <table class="data-table">
+        <thead><tr><th>File</th><th class="text-right">Size</th><th class="text-right">When</th></tr></thead>
+        <tbody>
+          {% for f in recent_files %}
+          <tr>
+            <td class="text-truncate" title="{{ f.name }}">{{ f.name }}</td>
+            <td class="text-right mono text-muted">{{ "%.1f"|format((f.file_size or 0) / (1024**2)) }} MB</td>
+            <td class="text-right mono text-muted">{{ f.created_at.strftime('%b %d, %H:%M') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">No files yet</div>
+      {% endif %}
+    </div>
+  </div>
 </div>
 
-<div class="dashboard" style="margin-top:30px">
-
-  <div class="card">
-    <h3>🔥 Top Downloads</h3>
-    <ul>
-      {% for f in top_files %}
-        <li>{{ f.name }} — {{ f.downloads }}</li>
-      {% endfor %}
-    </ul>
+{% if expiring_files %}
+<div class="panel">
+  <div class="panel-header">
+    <h2>Expiring Soon</h2>
   </div>
-
-  <div class="card">
-    <h3>🕒 Recent Uploads</h3>
-    <ul>
-      {% for f in recent_files %}
-        <li>{{ f.name }}</li>
-      {% endfor %}
-    </ul>
+  <div class="panel-body">
+    <table class="data-table">
+      <thead><tr><th>File</th><th class="text-right">Expires</th></tr></thead>
+      <tbody>
+        {% for f in expiring_files %}
+        <tr>
+          <td class="text-truncate" title="{{ f.name }}">{{ f.name }}</td>
+          <td class="text-right mono text-muted">{{ f.expires_at.strftime('%b %d, %H:%M UTC') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-
-  <div class="card">
-    <h3>⏳ Expiring Soon</h3>
-    <ul>
-      {% for f in expiring_files %}
-        <li>{{ f.name }}</li>
-      {% endfor %}
-    </ul>
-  </div>
-
 </div>
-
-</main>
-
-</body>
-</html>
+{% endif %}
+{% endblock %}

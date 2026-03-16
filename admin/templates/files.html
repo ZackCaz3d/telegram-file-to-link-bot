@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Files{% endblock %}
+{% block page_title %}Files{% endblock %}
+
+{% block topbar_actions %}
+<span class="text-muted">{{ total_files }} total</span>
+{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-header">
+    <div class="filter-bar">
+      <form method="get" class="filter-form" id="filter-form">
+        <div class="search-input-wrap">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" name="q" value="{{ query }}" placeholder="Search files..." class="search-input">
+        </div>
+
+        <select name="status" class="filter-select" onchange="this.form.submit()">
+          <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Status</option>
+          <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+          <option value="expired" {% if status_filter == 'expired' %}selected{% endif %}>Expired</option>
+          <option value="permanent" {% if status_filter == 'permanent' %}selected{% endif %}>Permanent</option>
+        </select>
+
+        <select name="sort" class="filter-select" onchange="this.form.submit()">
+          <option value="created_desc" {% if sort == 'created_desc' %}selected{% endif %}>Newest</option>
+          <option value="created_asc" {% if sort == 'created_asc' %}selected{% endif %}>Oldest</option>
+          <option value="downloads_desc" {% if sort == 'downloads_desc' %}selected{% endif %}>Most Downloads</option>
+          <option value="name_asc" {% if sort == 'name_asc' %}selected{% endif %}>Name A-Z</option>
+          <option value="size_desc" {% if sort == 'size_desc' %}selected{% endif %}>Largest</option>
+        </select>
+      </form>
+    </div>
+  </div>
+
+  <div class="panel-body no-pad">
+    <form method="post" action="/admin/files/bulk-delete" id="bulk-form">
+      <div class="bulk-bar" id="bulk-bar" style="display:none">
+        <span id="selected-count">0</span> selected
+        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Delete selected files permanently?')">Delete Selected</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="th-check"><input type="checkbox" id="select-all"></th>
+              <th>Name</th>
+              <th class="text-right">Size</th>
+              <th class="text-right">Downloads</th>
+              <th class="text-right">Status</th>
+              <th class="text-right">Created</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in files %}
+            <tr>
+              <td class="td-check"><input type="checkbox" name="file_ids" value="{{ f.file_id }}" class="row-check"></td>
+              <td>
+                <div class="file-name-cell">
+                  <span class="file-name text-truncate" title="{{ f.name }}">{{ f.name }}</span>
+                  <a href="{{ base_url }}/file/{{ f.file_id }}" class="file-link text-muted" target="_blank" title="Download link">{{ f.file_id }}</a>
+                </div>
+              </td>
+              <td class="text-right mono text-muted">
+                {% if f.file_size %}
+                  {% if f.file_size > 1073741824 %}
+                    {{ "%.2f"|format(f.file_size / 1073741824) }} GB
+                  {% elif f.file_size > 1048576 %}
+                    {{ "%.1f"|format(f.file_size / 1048576) }} MB
+                  {% elif f.file_size > 1024 %}
+                    {{ "%.1f"|format(f.file_size / 1024) }} KB
+                  {% else %}
+                    {{ f.file_size }} B
+                  {% endif %}
+                {% else %}&mdash;{% endif %}
+              </td>
+              <td class="text-right mono">{{ "{:,}".format(f.downloads) }}</td>
+              <td class="text-right">
+                {% if f.expires_at is none %}
+                  <span class="badge badge-green">Permanent</span>
+                {% elif f.expires_at > now %}
+                  <span class="badge badge-orange">Expiring</span>
+                {% else %}
+                  <span class="badge badge-red">Expired</span>
+                {% endif %}
+              </td>
+              <td class="text-right mono text-muted">{{ f.created_at.strftime('%b %d, %H:%M') }}</td>
+              <td class="text-right actions-cell">
+                <form method="post" action="/admin/file/{{ f.file_id }}/disable" class="inline-form">
+                  <button type="submit" class="btn btn-warning btn-xs" title="Expire now">Disable</button>
+                </form>
+                <form method="post" action="/admin/file/{{ f.file_id }}/delete" class="inline-form">
+                  <button type="submit" class="btn btn-danger btn-xs" onclick="return confirm('Delete permanently?')" title="Delete from DB + storage">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+
+            {% if not files %}
+            <tr><td colspan="7" class="empty-state">No files found</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </form>
+  </div>
+
+  {% if total_pages > 1 %}
+  <div class="panel-footer">
+    <div class="pagination">
+      {% if page_num > 1 %}
+      <a href="?q={{ query }}&status={{ status_filter }}&sort={{ sort }}&page={{ page_num - 1 }}" class="page-btn">&laquo; Prev</a>
+      {% endif %}
+
+      {% for p in range(1, total_pages + 1) %}
+        {% if p == page_num %}
+          <span class="page-btn active">{{ p }}</span>
+        {% elif p <= 3 or p > total_pages - 2 or (p >= page_num - 1 and p <= page_num + 1) %}
+          <a href="?q={{ query }}&status={{ status_filter }}&sort={{ sort }}&page={{ p }}" class="page-btn">{{ p }}</a>
+        {% elif p == 4 or p == total_pages - 2 %}
+          <span class="page-dots">&hellip;</span>
+        {% endif %}
+      {% endfor %}
+
+      {% if page_num < total_pages %}
+      <a href="?q={{ query }}&status={{ status_filter }}&sort={{ sort }}&page={{ page_num + 1 }}" class="page-btn">Next &raquo;</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const selectAll = document.getElementById('select-all');
+  const checks = document.querySelectorAll('.row-check');
+  const bulkBar = document.getElementById('bulk-bar');
+  const countEl = document.getElementById('selected-count');
+
+  function updateBulk() {
+    const n = document.querySelectorAll('.row-check:checked').length;
+    bulkBar.style.display = n > 0 ? 'flex' : 'none';
+    countEl.textContent = n;
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      checks.forEach(c => c.checked = this.checked);
+      updateBulk();
+    });
+  }
+  checks.forEach(c => c.addEventListener('change', updateBulk));
+});
+</script>
+{% endblock %}

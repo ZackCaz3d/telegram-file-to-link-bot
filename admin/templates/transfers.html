@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Transfers{% endblock %}
+{% block page_title %}Active Transfers{% endblock %}
+
+{% block topbar_actions %}
+<span class="badge {% if active %}pulse{% endif %} badge-blue">{{ active|length }} active</span>
+{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-header">
+    <h2>Active Transfers</h2>
+    <span class="text-muted text-sm">Auto-refreshes every 3s</span>
+  </div>
+  <div class="panel-body" id="active-transfers">
+    {% if active %}
+      {% for t in active %}
+      <div class="transfer-card">
+        <div class="transfer-top">
+          <div class="transfer-info">
+            <span class="transfer-name">{{ t.filename }}</span>
+            <span class="transfer-meta">
+              <span class="badge badge-blue">{{ t.direction }}</span>
+              <span class="badge badge-{{ 'green' if t.stage == 'uploading' else 'orange' }}">{{ t.stage }}</span>
+              User {{ t.user_id }}
+            </span>
+          </div>
+          <div class="transfer-stats">
+            <span class="mono">{{ "%.1f"|format(t.speed_bps / 1048576) }} MB/s</span>
+            <span class="text-muted">{{ t.elapsed }}s</span>
+          </div>
+        </div>
+        <div class="transfer-progress">
+          <div class="progress-bar">
+            <div class="progress-fill {% if t.stage == 'uploading' %}progress-upload{% endif %}" style="width: {{ t.progress }}%"></div>
+          </div>
+          <span class="progress-text">{{ t.progress }}%</span>
+        </div>
+        <div class="transfer-bytes text-muted text-sm">
+          {% set current_mb = t.current_bytes / 1048576 %}
+          {% set total_mb = t.total_bytes / 1048576 %}
+          {{ "%.1f"|format(current_mb) }} / {{ "%.1f"|format(total_mb) }} MB
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:12px;opacity:0.3"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+        <p>No active transfers</p>
+        <p class="text-muted text-sm">Transfers will appear here when files are being uploaded</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <h2>Recent History</h2>
+  </div>
+  <div class="panel-body" id="transfer-history">
+    {% if history %}
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Direction</th>
+            <th class="text-right">Size</th>
+            <th class="text-right">Duration</th>
+            <th class="text-right">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in history %}
+          <tr>
+            <td class="text-truncate" title="{{ t.filename }}">{{ t.filename }}</td>
+            <td><span class="badge badge-blue">{{ t.direction }}</span></td>
+            <td class="text-right mono text-muted">{{ "%.1f"|format(t.file_size / 1048576) }} MB</td>
+            <td class="text-right mono text-muted">{{ t.elapsed }}s</td>
+            <td class="text-right">
+              <span class="badge badge-{{ 'green' if t.stage == 'complete' else 'red' }}">{{ t.stage }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No transfer history yet</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  function refresh() {
+    fetch('/admin/api/transfers', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        // Update the badge in topbar
+        const badge = document.querySelector('.topbar-right .badge');
+        if (badge) {
+          badge.textContent = data.active.length + ' active';
+          badge.classList.toggle('pulse', data.active.length > 0);
+        }
+      })
+      .catch(() => {});
+  }
+  setInterval(refresh, 3000);
+})();
+</script>
+{% endblock %}

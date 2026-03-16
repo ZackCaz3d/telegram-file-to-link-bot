@@ -1,54 +1,136 @@
-<!--
-Copyright 2025 Aman
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+{% block content %}
+{% if saved %}
+<div class="alert alert-success">Settings saved successfully.</div>
+{% endif %}
 
-    http://www.apache.org/licenses/LICENSE-2.0
+<form method="post" action="/admin/settings/save" class="settings-form">
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
--->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-header"><h2>General</h2></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Max File Size (MB)</label>
+          <input type="number" name="max_file_mb" value="{{ settings.max_file_mb }}" class="form-input" min="0" placeholder="0 = unlimited">
+          <span class="form-hint">Set to 0 for no limit</span>
+        </div>
 
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Admin Settings</title>
-  <link rel="stylesheet" href="/static/css/admin.css?v=1">
-  <script src="/static/js/admin.js?v=1" defer></script>
-</head>
+        <div class="form-group">
+          <label class="form-label">Max Concurrent Transfers</label>
+          <input type="number" name="max_concurrent_transfers" value="{{ settings.max_concurrent_transfers }}" class="form-input" min="1" max="20">
+          <span class="form-hint">How many uploads can run at once</span>
+        </div>
 
-<body>
+        <div class="form-group">
+          <label class="form-label">Default Max Downloads</label>
+          <input type="number" name="default_max_downloads" value="{{ settings.default_max_downloads }}" class="form-input" min="0">
+          <span class="form-hint">0 = unlimited downloads per file</span>
+        </div>
 
-<header class="admin-header">
-  <h1>📊 System Info</h1>
+        <div class="form-group">
+          <label class="form-check">
+            <input type="checkbox" name="cleanup_enabled" {% if settings.cleanup_enabled == 'true' %}checked{% endif %}>
+            <span>Automatic Cleanup</span>
+          </label>
+          <span class="form-hint">Automatically delete expired files</span>
+        </div>
+      </div>
+    </div>
 
-  <nav class="header-actions">
-    <a href="/admin" class="nav-link">Dashboard</a>
-    <a href="/admin/settings" class="nav-link">Settings</a>
-    <button id="theme-toggle">🌙</button>
-    <form method="post" action="/admin/logout">
-      <button class="logout">Logout</button>
-    </form>
-  </nav>
-</header>
+    <div class="panel">
+      <div class="panel-header"><h2>Rate Limiting</h2></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Requests per Window</label>
+          <input type="number" name="rate_limit_requests" value="{{ settings.rate_limit_requests }}" class="form-input" min="1">
+          <span class="form-hint">Max download requests per IP per window</span>
+        </div>
 
-<main>
+        <div class="form-group">
+          <label class="form-label">Window (seconds)</label>
+          <input type="number" name="rate_limit_window" value="{{ settings.rate_limit_window }}" class="form-input" min="1">
+          <span class="form-hint">Rate limit time window in seconds</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-<a href="/admin" class="nav-link" style="margin-bottom:16px;display:inline-block">
-  ← Back to Dashboard
-</a>
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-header"><h2>Access Control</h2></div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label class="form-label">Allowed User IDs</label>
+          <input type="text" name="allowed_user_ids" value="{{ settings.allowed_user_ids }}" class="form-input" placeholder="e.g. 123456,789012">
+          <span class="form-hint">Comma-separated Telegram user IDs. Leave empty to allow all.</span>
+        </div>
+      </div>
+    </div>
 
-<div class="card">
-  <h3>📦 Storage Usage</h3>
-  <p><strong>Used:</strong> {{ (used_bytes / (1024**2)) | round(2) }} MB</p>
-  <p><strong>Total files:</strong> {{ total_files }}</p>
-  <p><strong>Largest file:</strong> {{ (largest_file / (1024**2)) | round(2) }} MB</p>
+    <div class="panel">
+      <div class="panel-header"><h2>Storage Info</h2></div>
+      <div class="panel-body">
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Backend</span>
+            <span class="info-value">{{ storage_backend | upper }}</span>
+          </div>
+          {% if storage_backend == 's3' %}
+          <div class="info-item">
+            <span class="info-label">Bucket</span>
+            <span class="info-value">{{ bucket_name }}</span>
+          </div>
+          {% endif %}
+          <div class="info-item">
+            <span class="info-label">Base URL</span>
+            <span class="info-value mono" style="font-size:12px">{{ base_url }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Used Space</span>
+            <span class="info-value">
+              {% if storage_stats.used_bytes > 1073741824 %}
+                {{ "%.2f"|format(storage_stats.used_bytes / 1073741824) }} GB
+              {% else %}
+                {{ "%.1f"|format(storage_stats.used_bytes / 1048576) }} MB
+              {% endif %}
+            </span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Total Files</span>
+            <span class="info-value">{{ storage_stats.total_files }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Largest File</span>
+            <span class="info-value">{{ "%.1f"|format(storage_stats.largest_file / 1048576) }} MB</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Save Settings</button>
+  </div>
+</form>
+
+<div class="panel" style="margin-top:24px">
+  <div class="panel-header"><h2>Danger Zone</h2></div>
+  <div class="panel-body">
+    <div class="danger-zone">
+      <div class="danger-item">
+        <div>
+          <strong>Purge Expired Files</strong>
+          <p class="text-muted text-sm">Delete all files that have already expired from database and storage.</p>
+        </div>
+        <form method="post" action="/admin/settings/purge-expired">
+          <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Purge all expired files now?')">Purge Expired</button>
+        </form>
+      </div>
+    </div>
+  </div>
 </div>
-
-</main>
-
-</body>
-</html>
+{% endblock %}

@@ -1,37 +1,41 @@
-<!--
-Copyright 2025 Aman
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
--->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Admin Login</title>
-  <link rel="stylesheet" href="/static/css/admin.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - File Bot Admin</title>
+  <link rel="stylesheet" href="/static/css/admin.css?v=2">
 </head>
-
-<body class="centered auth-page">
-  <div class="card auth-card">
-    <h2>🔐 Admin Login</h2>
+<body class="login-page">
+  <div class="login-card">
+    <div class="login-header">
+      <span class="brand-icon" style="font-size:32px">&#9889;</span>
+      <h1>File Bot Admin</h1>
+      <p class="text-muted">Sign in to your account</p>
+    </div>
 
     {% if error %}
       <div class="alert alert-error">{{ error }}</div>
     {% endif %}
 
-    <form method="post">
-      <input type="email" name="email" placeholder="Email" required>
-      <input type="password" name="password" placeholder="Password" required>
-      <button type="submit" class="action-btn">Login</button>
+    <form method="post" class="login-form">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" placeholder="admin@example.com" required class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" name="password" placeholder="Password" required class="form-input">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Sign In</button>
     </form>
   </div>
+
+  <script>
+    if (localStorage.getItem('admin-theme') === 'dark' ||
+        (!localStorage.getItem('admin-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.body.classList.add('dark');
+    }
+  </script>
 </body>
 </html>

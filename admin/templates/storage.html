@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Storage{% endblock %}
+{% block page_title %}Storage Browser{% endblock %}
+
+{% block topbar_actions %}
+<span class="badge badge-blue">{{ storage_backend | upper }}</span>
+{% if storage_backend == 's3' %}
+<span class="text-muted">{{ bucket_name }}</span>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="stats-grid stats-grid-3">
+  <div class="stat-card">
+    <div class="stat-icon blue">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Total Size</span>
+      <span class="stat-value">
+        {% if storage_stats.total_size > 1073741824 %}
+          {{ "%.2f"|format(storage_stats.total_size / 1073741824) }} GB
+        {% else %}
+          {{ "%.1f"|format(storage_stats.total_size / 1048576) }} MB
+        {% endif %}
+      </span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon green">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Tracked Files</span>
+      <span class="stat-value">{{ storage_stats.total_files }}</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon purple">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Backend</span>
+      <span class="stat-value" style="font-size:18px">{{ storage_backend | upper }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <h2>
+      <a href="/admin/storage" class="breadcrumb-link">root</a>
+      {% if prefix %}
+        {% set parts = prefix.rstrip('/').split('/') %}
+        {% for part in parts %}
+          <span class="breadcrumb-sep">/</span>
+          {% set path = '/'.join(parts[:loop.index]) + '/' %}
+          <a href="/admin/storage?prefix={{ path }}" class="breadcrumb-link">{{ part }}</a>
+        {% endfor %}
+      {% endif %}
+    </h2>
+  </div>
+
+  <div class="panel-body no-pad">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th class="text-right">Size</th>
+            <th class="text-right">Modified</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if prefix %}
+          <tr>
+            {% set parent = '/'.join(prefix.rstrip('/').split('/')[:-1]) %}
+            <td colspan="4">
+              <a href="/admin/storage{% if parent %}?prefix={{ parent }}/{% endif %}" class="folder-link">..</a>
+            </td>
+          </tr>
+          {% endif %}
+
+          {% for folder in folders %}
+          <tr>
+            <td>
+              <a href="/admin/storage?prefix={{ folder.prefix }}" class="folder-link">
+                <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                {{ folder.name }}/
+              </a>
+            </td>
+            <td class="text-right text-muted">&mdash;</td>
+            <td class="text-right text-muted">&mdash;</td>
+            <td class="text-right">&mdash;</td>
+          </tr>
+          {% endfor %}
+
+          {% for file in files %}
+          <tr>
+            <td>
+              <span class="storage-file-name">
+                <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                {{ file.name }}
+              </span>
+            </td>
+            <td class="text-right mono text-muted">
+              {% if file.size > 1073741824 %}
+                {{ "%.2f"|format(file.size / 1073741824) }} GB
+              {% elif file.size > 1048576 %}
+                {{ "%.1f"|format(file.size / 1048576) }} MB
+              {% elif file.size > 1024 %}
+                {{ "%.1f"|format(file.size / 1024) }} KB
+              {% else %}
+                {{ file.size }} B
+              {% endif %}
+            </td>
+            <td class="text-right mono text-muted">{{ file.last_modified[:16] }}</td>
+            <td class="text-right">
+              <form method="post" action="/admin/storage/delete" class="inline-form">
+                <input type="hidden" name="key" value="{{ file.key }}">
+                <button type="submit" class="btn btn-danger btn-xs" onclick="return confirm('Delete this file from storage and database?')">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+
+          {% if not folders and not files %}
+          <tr><td colspan="4" class="empty-state">{% if prefix %}Empty folder{% else %}No files in storage{% endif %}</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
