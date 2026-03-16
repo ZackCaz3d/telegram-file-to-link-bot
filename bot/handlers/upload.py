@@ -11,12 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 
 import asyncio
+import json
 import uuid
 import os
 import re
 import time
 from datetime import datetime, timedelta, timezone
-from dataclasses import dataclass, field
+from dataclasses import dataclass, asdict
 from typing import Optional
 
 import boto3
@@ -155,6 +156,33 @@ def build_s3_key(file_id: str, ext: str, meta: FileMetadata) -> str:
     return f"{folder}/{file_id}{ext}"
 
 
+def build_metadata_dict(
+    meta: FileMetadata,
+    file_id: str,
+    original_name: str,
+    file_size: int,
+    ttl: int,
+    expires_at: Optional[datetime],
+) -> dict:
+    """Build a JSON-serialisable metadata dict for sidecar storage."""
+    return {
+        **{k: v for k, v in asdict(meta).items() if v is not None},
+        "file_id": file_id,
+        "original_name": original_name,
+        "file_size": file_size,
+        "ttl_seconds": ttl,
+        "expires_at": expires_at.isoformat() if expires_at else None,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _write_metadata_sidecar(path: str, meta_dict: dict):
+    """Write a .meta.json sidecar next to the stored file (local backend)."""
+    meta_path = path + ".meta.json"
+    with open(meta_path, "w") as f:
+        json.dump(meta_dict, f, indent=2)
+
+
 async def _safe_edit(msg, text: str):
     """Edit a message, silently ignoring flood-wait / not-modified errors."""
     try:
@@ -184,9 +212,19 @@ async def upload_handler(_, message):
         await message.reply("🚫 Unauthorized")
         return
 
-    status = await message.reply("📥 Queued for processing…")
+    # Check if the semaphore is fully occupied (all slots taken)
+    queued = upload_semaphore._value == 0
+    if queued:
+        status = await message.reply(
+            "🕐 **Queued** — all upload slots are busy.\n"
+            "Your file will be processed as soon as a slot frees up."
+        )
+    else:
+        status = await message.reply("📥 **Processing…**")
 
     async with upload_semaphore:
+        if queued:
+            await _safe_edit(status, "📥 **Slot acquired — starting upload…**")
         await process_upload(message, status)
 
 
@@ -235,12 +273,17 @@ async def process_upload(message: Message, status):
         last_edit_time = now
         await _safe_edit(
             status,
-            f"⬇️ **Downloading from Telegram…**\n\n"
+            f"⬇️ **Downloading from Telegram…**\n"
+            f"`{original_name}`\n\n"
             f"`{progress_bar(pct)}` {pct:.0%}\n"
             f"{format_bytes(current)} / {format_bytes(total)}"
         )
 
-    await status.edit("⬇️ **Downloading from Telegram…**\n\n`" + "░" * 14 + "` 0%")
+    await status.edit(
+        f"⬇️ **Downloading from Telegram…**\n"
+        f"`{original_name}`\n\n"
+        f"`{'░' * 14}` 0%"
+    )
     temp_path = await message.download(progress=download_progress)
 
     if not temp_path:
@@ -252,6 +295,18 @@ async def process_upload(message: Message, status):
     ext = os.path.splitext(original_name)[1]
 
     # ── Store ─────────────────────────────────────────────────────────
+    # ── TTL / expiry (needed before metadata sidecar) ──────────────
+    user_mode = get_mode(message.from_user.id)
+    ttl = user_mode["ttl"] if user_mode["ttl"] > 0 else 0
+    expires_at = (
+        datetime.now(timezone.utc) + timedelta(seconds=ttl)
+        if ttl > 0 else None
+    )
+
+    meta_dict = build_metadata_dict(
+        meta, file_id, original_name, file_size, ttl, expires_at,
+    )
+
     if STORAGE_BACKEND == "local":
         # Organize into subfolders locally too
         folder = sanitize_folder(meta.source) if meta.source else "_unsorted"
@@ -260,6 +315,7 @@ async def process_upload(message: Message, status):
         internal_path = os.path.join(dest_dir, f"{file_id}{ext}")
         os.replace(temp_path, internal_path)
         stored_path = internal_path
+        _write_metadata_sidecar(internal_path, meta_dict)
     else:
         # ── S3 upload with progress ──────────────────────────────────
         key = build_s3_key(file_id, ext, meta)
@@ -279,14 +335,19 @@ async def process_upload(message: Message, status):
             asyncio.run_coroutine_threadsafe(
                 _safe_edit(
                     status,
-                    f"⬆️ **Uploading to storage…**\n\n"
+                    f"⬆️ **Uploading to storage…**\n"
+                    f"`{original_name}`\n\n"
                     f"`{progress_bar(pct)}` {pct:.0%}\n"
                     f"{format_bytes(uploaded_so_far)} / {format_bytes(upload_total)}"
                 ),
                 loop,
             )
 
-        await status.edit("⬆️ **Uploading to storage…**\n\n`" + "░" * 14 + "` 0%")
+        await status.edit(
+            f"⬆️ **Uploading to storage…**\n"
+            f"`{original_name}`\n\n"
+            f"`{'░' * 14}` 0%"
+        )
         await asyncio.to_thread(
             s3.upload_file,
             temp_path,
@@ -297,13 +358,16 @@ async def process_upload(message: Message, status):
         os.remove(temp_path)
         stored_path = key
 
-    # ── TTL / expiry ─────────────────────────────────────────────────
-    user_mode = get_mode(message.from_user.id)
-    ttl = user_mode["ttl"] if user_mode["ttl"] > 0 else 0
-    expires_at = (
-        datetime.now(timezone.utc) + timedelta(seconds=ttl)
-        if ttl > 0 else None
-    )
+        # Upload metadata sidecar to S3
+        meta_key = key + ".meta.json"
+        meta_body = json.dumps(meta_dict, indent=2).encode()
+        await asyncio.to_thread(
+            s3.put_object,
+            Bucket=AWS_S3_BUCKET_NAME,
+            Key=meta_key,
+            Body=meta_body,
+            ContentType="application/json",
+        )
 
     # ── Persist to DB + cache ────────────────────────────────────────
     await Database.pool.execute(
@@ -332,41 +396,42 @@ async def process_upload(message: Message, status):
         }
     )
 
-    # ── Build the beautified completion message ──────────────────────
+    # ── Build the completion message ────────────────────────────────
     link = f"{BASE_URL}/file/{file_id}"
 
-    lines = ["✅ **Upload complete**", ""]
+    lines = ["✅ **Upload complete**"]
+    lines.append("━━━━━━━━━━━━━━━━━━━━")
 
-    # Core file info
+    # File details section
     lines.append(f"📄  `{original_name}`")
-    lines.append(f"📦  **{format_bytes(file_size)}**")
+    lines.append(f"📦  {format_bytes(file_size)}")
 
-    # Parsed metadata (only shown when detected)
+    # Parsed metadata section
+    meta_lines = []
     if meta.source:
-        lines.append(f"📂  `{sanitize_folder(meta.source)}/`")
-
+        meta_lines.append(f"📂  Folder: `{sanitize_folder(meta.source)}/`")
     if meta.count:
-        lines.append(f"🔢  **{meta.count:,}** items")
-
+        meta_lines.append(f"🔢  **{meta.count:,}** items")
     if meta.password:
-        lines.append(f"🔑  `{meta.password}`")
-
+        meta_lines.append(f"🔑  Password: `{meta.password}`")
     if meta.date_tag:
-        lines.append(f"📅  {meta.date_tag}")
+        meta_lines.append(f"📅  Date: {meta.date_tag}")
+    if meta.channel:
+        meta_lines.append(f"📡  Channel: {meta.channel}")
 
-    lines.append("")  # spacer
+    if meta_lines:
+        lines.append("")
+        lines.extend(meta_lines)
 
-    # Expiry
+    # Expiry section
+    lines.append("")
     if ttl > 0:
         lines.append(f"⏳  Expires in **{format_ttl(ttl)}**")
     else:
         lines.append("♾  **No expiration**")
 
-    # Channel branding
-    if meta.channel:
-        lines.append(f"📡  {meta.channel}")
-
     # Link (always last, prominent)
-    lines.append(f"\n🔗  `{link}`")
+    lines.append("")
+    lines.append(f"🔗  `{link}`")
 
     await status.edit("\n".join(lines))
