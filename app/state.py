@@ -55,11 +55,19 @@ async def cleanup_expired_files():
                             # Local filesystem cleanup
                             if path and os.path.exists(path):
                                 os.remove(path)
+                            meta_path = path + ".meta.json"
+                            if meta_path and os.path.exists(meta_path):
+                                os.remove(meta_path)
                         else:
-                            # S3 bucket cleanup
-                            s3.delete_object(
+                            # S3 bucket cleanup (file + metadata sidecar)
+                            s3.delete_objects(
                                 Bucket=AWS_S3_BUCKET_NAME,
-                                Key=path,
+                                Delete={
+                                    "Objects": [
+                                        {"Key": path},
+                                        {"Key": path + ".meta.json"},
+                                    ]
+                                },
                             )
                     except Exception as e:
                         # Never crash cleanup loop
